@@ -183,32 +183,38 @@ class Schematic {
   }
 
   /**
-   * makes an array of setblock commands for 1.11+
+   * makes an array of setblock commands
    * @param {Vec3} offset x, y, z offset for commands
-   * @param {Vec3} newBlockState mc ver 1.11+
-   * @returns {Array<string>} array of commands
+   * @returns {Promise<Array<string>>} array of commands
    */
-  async makeWithCommands (offset, platform = 'pc') {
+  async makeWithCommands (offset, platform = 'pc', peVersion) {
     const cmds = []
     await this.forEach(async (block, pos) => {
       const { x, y, z } = pos.offset(offset.x, offset.y, offset.z)
       const versionedMcData = mcData(this.version)
-      let state
+      let bedrockVersionedMcData
+      let blockState = block.name
       if (versionedMcData.isNewerOrEqualTo('1.13')) {
-        state = Object.entries(block.getProperties()).map(([key, value]) => `${key}="${value}"`).join(',')
+        const state = `[${Object.entries(block.getProperties()).sort((a, b) => a[0].localeCompare(b[0])).map(([key, value]) => `${key}=${value}`).join(',')}]`
         if (platform === 'pc') {
-          state = state ? `[${state}]` : ''
+          if (state !== '[]') {
+            blockState += state
+          }
         } else if (platform === 'pe') {
-          state = state ? ` [${state}]` : ''
+          bedrockVersionedMcData ||= mcData(`pe_${peVersion}`)
+          const oldBlockState = blockState
+          blockState = bedrockVersionedMcData.blocksJ2B['minecraft:' + blockState + state]
+          if (!blockState) {
+            console.log('minecraft:' + oldBlockState + state)
+            blockState = 'minecraft:air[]'
+          }
         } else {
           throw Error('Invalid Platform ' + platform)
         }
       } else if (versionedMcData.isNewerOrEqualTo('1.11')) {
-        state = ` ${block.metadata}`
-      } else { // <1.111
-        state = ''
+        blockState += ` ${block.metadata}`
       }
-      cmds.push(`/setblock ${x} ${y} ${z} ${block.name}${state}`)
+      cmds.push(`/setblock ${x} ${y} ${z} ${blockState}`)
     })
     return cmds
   }
