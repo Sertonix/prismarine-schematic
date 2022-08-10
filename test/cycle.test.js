@@ -61,5 +61,25 @@ describe('cycle test', () => {
         }
         assert.deepStrictEqual([...schematic.palette].sort(), [...schematic2.palette].sort())
       })
+
+      test('to-fromJSON', async () => {
+        const schem = await Schematic.read(await fs.readFile(schemFile))
+        const data = schem.toJSON()
+        const schemParsed = Schematic.fromJSON(data)
+        expect(schemParsed).not.toBeNull()
+        expect(schemParsed.palette.length).toStrictEqual(schem.palette.length)
+        expect(schemParsed.blocks.length).toStrictEqual(schem.blocks.length)
+      })
+
+      test('map-forEach', async () => {
+        const schem = await Schematic.read(await fs.readFile(schemFile))
+        const forEachData = []
+        await schem.forEach((block) => forEachData.push(block))
+        const mapData = await schem.map((block) => block)
+        expect(forEachData).toStrictEqual(mapData)
+        expect(schem.blocks.length).toStrictEqual(mapData.length)
+        expect(schem.getBlock(schem.start())).toStrictEqual(mapData[0])
+        expect(schem.getBlock(schem.end())).toStrictEqual(mapData[mapData.length - 1])
+      })
     })
 })
